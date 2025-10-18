@@ -1,2 +1,2 @@
 # jelib
-Personal python library with containing handy functions
+Jack's python library
