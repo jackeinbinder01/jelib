@@ -14,7 +14,7 @@ def init_project(debug: bool = False, logfile: str | None = None) -> None:
     """
     level = logging.DEBUG if debug else logging.INFO
     setup_logging(level=level, filename=logfile)
-    logger.info("Project iitialized using jelib.")
+    logger.info("Project initialized using jelib.")
 
 
 __all__ = [
