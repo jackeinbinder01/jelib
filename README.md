@@ -1,2 +1,3 @@
 # jelib
-Jack's python library
+
+My personal Python sandbox.
