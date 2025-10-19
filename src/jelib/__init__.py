@@ -1,6 +1,5 @@
 import logging
-
-from .core.log import logger, setup_logging
+from .core.log import logger, setup_logging, log_status
 from .core.status import Status
 
 
@@ -20,6 +19,7 @@ def init_project(debug: bool = False, logfile: str | None = None) -> None:
 __all__ = [
     "init_project",
     "setup_logging",
+    "log_status",
     "logger",
     "Status",
 ]
