@@ -1,7 +1,6 @@
 from enum import Enum, auto
 
 
-
 class Status(Enum):
     """
     Represents the outcome or state of an operation.
