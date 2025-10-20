@@ -179,3 +179,57 @@ def ema(
         ma_type="exponential",
         df=df
     )
+
+
+def bull_market_support_band(
+        ticker: str,
+        timeframe: str = "1d",
+        period: str = "1y",
+        df: pd.DataFrame | None = None,
+) -> tuple[float, float]:
+    """
+    Calculate the Bull Market Support Band for a given asset.
+
+    The Bull Market Support Band is defined as the combination of:
+        - 20-period Simple Moving Average (SMA)
+        - 21-period Exponential Moving Average (EMA)
+
+    This indicator is commonly used in trend analysis to identify dynamic support
+    during bullish market conditions. The SMA and EMA are returned as a tuple:
+    (sma_20, ema_21).
+
+    Parameters:
+        ticker (str): The symbol of the asset to fetch (e.g., 'BTC-USD', 'AAPL').
+        timeframe (str): The data interval to request (e.g., '1d', '1wk', '1h').
+        period (str): The total range of historical data to retrieve (e.g., '1y', '6mo', 'max').
+        df (pd.DataFrame, optional): Optional preloaded price data containing a 'close' column.
+            If provided, historical data will not be fetched automatically.
+
+    Returns:
+        tuple[float, float]: A tuple containing:
+            - The latest 20-period SMA value.
+            - The latest 21-period EMA value.
+
+    Raises:
+        ValueError: If insufficient data is available to compute either moving average.
+        KeyError: If the provided DataFrame does not contain a 'close' column.
+
+    Example:
+        >>> bull_market_support_band("BTC-USD", timeframe="1d", period="1y")
+        (39500.23, 40210.87)
+    """
+    sma_20 = sma(
+        ticker=ticker,
+        length=20,
+        timeframe=timeframe,
+        period=period,
+        df=df
+    )
+    ema_21 = ema(
+        ticker=ticker,
+        length=21,
+        timeframe=timeframe,
+        period=period,
+        df=df
+    )
+    return sma_20, ema_21
