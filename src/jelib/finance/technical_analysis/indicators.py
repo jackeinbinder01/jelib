@@ -1,4 +1,4 @@
-from ..data.yahoo_provider import YahooDataProvider
+from jelib.finance.data.price.yahoo_provider import YahooDataProvider
 import pandas as pd
 
 _provider = YahooDataProvider()

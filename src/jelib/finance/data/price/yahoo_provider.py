@@ -1,6 +1,6 @@
 import yfinance as yf
 import pandas as pd
-from .provider_base import DataProvider
+from jelib.finance.data.provider_base import DataProvider
 
 
 class YahooDataProvider(DataProvider):

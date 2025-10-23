@@ -1,7 +1,7 @@
 import math
 
 
-def propagation_time(distance: float, velocity: float = 3e8) -> float:
+def propagation_delay(distance: float, velocity: float = 3e8) -> float:
     """
     Calculate the propagation delay of a signal traveling a given distance.
 
@@ -16,7 +16,7 @@ def propagation_time(distance: float, velocity: float = 3e8) -> float:
     Returns
     -------
     float
-        The time delay in seconds.
+        The propagation delay in seconds.
 
     Raises
     ------
@@ -25,17 +25,18 @@ def propagation_time(distance: float, velocity: float = 3e8) -> float:
 
     Examples
     --------
-    >>> propagation_time(300_000_000)  # distance in meters
+    >>> propagation_delay(300_000_000)  # distance in meters
     1.0
-    >>> propagation_time(1_000, velocity=2e8)
+    >>> propagation_delay(1_000, velocity=2e8)
     5e-06
     """
     if velocity <= 0:
         raise ValueError("Velocity must be greater than 0.")
+
     return distance / velocity
 
 
-def transmission_time(packet_size: float, bandwidth: float) -> float:
+def transmission_delay(packet_size: float, bandwidth: float) -> float:
     """
     Calculate the transmission delay for a data packet over a network link.
 
@@ -58,66 +59,87 @@ def transmission_time(packet_size: float, bandwidth: float) -> float:
 
     Examples
     --------
-    >>> transmission_time(8_000_000, 1_000_000)
+    >>> transmission_delay(8_000_000, 1_000_000)
     8.0
-    >>> transmission_time(1_500, 1_000_000_000)  # 1500-bit packet over 1 Gbps link
+    >>> transmission_delay(1_500, 1_000_000_000)  # 1500-bit packet over 1 Gbps link
     1.5e-06
     """
     if bandwidth <= 0:
         raise ValueError("Bandwidth must be greater than 0.")
+
     return packet_size / bandwidth
 
 
-def latency(propagation_time: float, transmission_time: float, queue_delay: float) -> float:
+def latency(propagation_delay: float, transmission_delay: float, queue_delay: float = 0) -> float:
     """
-    Calculate the total end-to-end latency for a packet transmission.
+    Compute the total one-way end-to-end latency for a packet transmission.
+
+    This latency includes:
+      • Propagation delay (physical travel time through the medium),
+      • Transmission delay (time to push the packet bits onto the wire),
+      • Queueing delay (time spent waiting in buffers due to congestion).
 
     Parameters
     ----------
-    propagation_time : float
-        The time it takes for a signal to travel from sender to receiver across the medium, in seconds.
-    transmission_time : float
-        The time required to push all packet bits onto the link, in seconds.
-    queue_delay : float
-        The time the packet spends waiting in queue before transmission, in seconds.
+    propagation_delay : float
+        One-way propagation delay in seconds. Must be >= 0.
+    transmission_delay : float
+        Time to transmit the packet onto the link, in seconds. Must be >= 0.
+    queue_delay : float, optional
+        Time spent waiting in transmission queues, in seconds. Defaults to 0. Must be >= 0.
 
     Returns
     -------
     float
-        The total latency in seconds.
+        Total one-way latency in seconds.
 
     Examples
     --------
+    >>> latency(0.01, 0.005)
+    0.015
     >>> latency(0.01, 0.005, 0.002)
     0.017
     """
-    return propagation_time + transmission_time + queue_delay
+    if propagation_delay < 0 or transmission_delay < 0 or queue_delay < 0:
+        raise ValueError("All delay values must be non-negative.")
+
+    return propagation_delay + transmission_delay + queue_delay
 
 
 def data_in_flight(bandwidth: float, latency: float) -> float:
     """
-    Calculate the amount of data in flight on a network link.
+    Compute the volume of in-flight data on a link (bandwidth-delay product).
 
-    This represents the volume of data that has been transmitted but not yet received,
-    based on the bandwidth and one-way latency of the link.
+    This represents the maximum amount of data (in bits) that can exist on the network
+    at any instant — data that has been transmitted but not yet acknowledged or received.
 
     Parameters
     ----------
     bandwidth : float
-        The bandwidth of the network link in megabits per second (Mbps).
+        Link bandwidth in bits per second (bps). Must be > 0.
     latency : float
-        The one-way latency of the link in seconds.
+        One-way latency of the link in seconds. Must be >= 0.
 
     Returns
     -------
     float
-        The amount of data in flight in megabits (Mb).
+        Amount of data in flight, in bits.
+
+    Raises
+    ------
+    ValueError
+        If `bandwidth` is less than or equal to 0, or if `latency` is negative.
 
     Examples
     --------
-    >>> data_in_flight(100, 0.02)  # 100 Mbps bandwidth, 20 ms latency
-    2.0
+    >>> data_in_flight(1_000_000, 0.02)  # 1 Mbps, 20 ms latency
+    20000.0
     """
+    if bandwidth <= 0:
+        raise ValueError("Bandwidth must be greater than 0.")
+    if latency < 0:
+        raise ValueError("Latency cannot be negative.")
+
     return bandwidth * latency
 
 
@@ -152,6 +174,7 @@ def wavelength(speed: float, frequency: float) -> float:
     """
     if frequency <= 0.0:
         raise ValueError("Frequency must be greater than 0.")
+
     return speed / frequency
 
 
@@ -213,6 +236,7 @@ def channel_capacity(bandwidth: float, snr_linear: float) -> float:
         raise ValueError("Bandwidth must be greater than 0.")
     if snr_linear < 0:
         raise ValueError("SNR (linear) cannot be negative.")
+
     return bandwidth * math.log2(1 + snr_linear)
 
 
@@ -279,8 +303,234 @@ def required_snr(capacity: float, bandwidth: float) -> float:
         raise ValueError("Bandwidth must be greater than 0.")
     if capacity < 0:
         raise ValueError("Capacity cannot be negative.")
+
     snr = 2 ** (capacity / bandwidth) - 1
     return max(snr, 0.0)
 
 
+def sliding_window_size(rtt: float, bandwidth: float) -> float:
+    """
+    Compute the sliding window size required to fully utilize a network link.
 
+    This function calculates the bandwidth-delay product (BDP), which represents
+    the maximum amount of data that can be in transit (in-flight) on the network
+    before an acknowledgment is received. It is a fundamental concept in flow
+    control protocols such as TCP sliding window.
+
+    Parameters
+    ----------
+    rtt : float
+        The network delay in seconds. Represents the round-trip time. Must be >= 0.
+    bandwidth : float
+        The link bandwidth in bits per second (bps). Must be greater than 0.
+
+    Returns
+    -------
+    float
+        The sliding window size in bits. Guaranteed to be >= 0.
+
+    Raises
+    ------
+    ValueError
+        If `bandwidth` is less than or equal to 0.
+        If `rtt` is negative.
+
+    Examples
+    --------
+    >>> sliding_window_size(0.1, 1_000_000)
+    100000.0
+    >>> sliding_window_size(0.05, 10_000_000)
+    500000.0
+    """
+    if bandwidth <= 0:
+        raise ValueError("Bandwidth must be greater than 0.")
+    if rtt < 0:
+        raise ValueError("Round-trip time cannot be negative.")
+
+    return rtt * bandwidth
+
+
+def round_trip_time(propagation_delay: float, transmission_delay: float = 0.0) -> float:
+    """
+    Compute the round-trip time (RTT) for a network connection.
+
+    RTT represents the total time it takes for a signal to travel from the sender
+    to the receiver and back again. It is commonly used in latency, congestion control,
+    and sliding window calculations.
+
+    Parameters
+    ----------
+    propagation_delay : float
+        One-way propagation delay in seconds. Represents how long a signal
+        takes to travel across the medium from source to destination. Must be >= 0.
+    transmission_delay : float, optional
+        Additional delay due to the time required to place the packet onto the link
+        (in seconds). Defaults to 0. Must be >= 0.
+
+    Returns
+    -------
+    float
+        Round-trip time (RTT) in seconds.
+
+    Raises
+    ------
+    ValueError
+        If `propagation_delay` or `transmission_delay` is negative.
+
+    Examples
+    --------
+    >>> round_trip_time(0.05)
+    0.1
+    >>> round_trip_time(0.02, transmission_delay=0.005)
+    0.045
+    """
+    if propagation_delay < 0:
+        raise ValueError("Propagation delay cannot be negative")
+    if transmission_delay < 0:
+        raise ValueError("Transmission delay cannot be negative")
+
+    return 2 * propagation_delay + transmission_delay
+
+def transfer_time(rtt: float, file_size: float, bandwidth: float) -> float:
+    """
+    Compute the total time required to transfer a file over a network connection.
+
+    This calculation uses a simplified model where the transfer time consists of one
+    round-trip time (RTT) of latency plus the time required to transmit the entire file
+    at a constant bandwidth. It assumes an ideal network with no congestion, packet loss,
+    or protocol overhead, and is commonly used in theoretical throughput and latency
+    analysis.
+
+    Parameters
+    ----------
+    rtt : float
+        Round-trip time in seconds. Represents the latency between the sender and receiver,
+        including propagation and processing delays. Must be >= 0.
+    file_size : float
+        Size of the file to be transferred, in bytes (or bits if bandwidth is expressed in bits/s).
+        Must be >= 0.
+    bandwidth : float
+        Available network bandwidth in bytes per second (or bits per second if matching units with file_size).
+        Must be > 0.
+
+    Returns
+    -------
+    float
+        Total file transfer time in seconds.
+
+    Raises
+    ------
+    ValueError
+        If `rtt` or `file_size` is negative, or if `bandwidth` is less than or equal to zero.
+
+    Examples
+    --------
+    >>> transfer_time(0.1, file_size=1_000_000, bandwidth=10_000_000)
+    0.2
+    >>> transfer_time(0.05, file_size=500_000, bandwidth=5_000_000)
+    0.15
+    """
+    if bandwidth <= 0:
+        raise ValueError("Bandwidth must be greater than 0.")
+    if file_size < 0:
+        raise ValueError("File size cannot be negative.")
+    if rtt < 0:
+        raise ValueError("Round-trip time cannot be negative.")
+
+    return rtt + (file_size / bandwidth)
+
+
+def stop_and_wait_utilization(transmission_delay: float, rtt: float) -> float:
+    """
+    Compute the link utilization for a stop-and-wait protocol.
+
+    Utilization represents the fraction of time the sender is actively transmitting data
+    on the link, as opposed to waiting for acknowledgments. This simplified model assumes
+    a single outstanding frame at a time and calculates utilization using the ratio of
+    transmission time to the total cycle time (transmission plus round-trip delay).
+
+    Parameters
+    ----------
+    transmission_delay : float
+        Time required to place the entire frame onto the link (in seconds). Must be >= 0.
+    rtt : float
+        Round-trip time in seconds, including propagation and acknowledgment delays.
+        Represents the waiting period before the sender can transmit the next frame.
+        Must be >= 0.
+
+    Returns
+    -------
+    float
+        Link utilization as a value between 0 and 1, where 0 means the link is idle and
+        1 means it is being used continuously for transmission.
+
+    Raises
+    ------
+    ValueError
+        If `transmission_delay` or `rtt` is negative, or if both are zero.
+
+    Examples
+    --------
+    >>> stop_and_wait_utilization(0.01, rtt=0.09)
+    0.1
+    >>> stop_and_wait_utilization(0.05, rtt=0.05)
+    0.5
+    """
+    if transmission_delay < 0:
+        raise ValueError("Transmission cannot be negative.")
+    if rtt < 0:
+        raise ValueError("Round-trip time cannot be negative.")
+    if transmission_delay == 0 and rtt == 0:
+        raise ValueError("Both transmission_delay and rtt cannot be zero.")
+
+    return transmission_delay / (transmission_delay + rtt)
+
+
+def sliding_window_utilization(window_size: int, rtt: float, bandwidth: float) -> float:
+    """
+    Compute the link utilization for a sliding window protocol.
+
+    Utilization represents the efficiency of data transmission when multiple frames can be
+    in transit before waiting for acknowledgments. This model accounts for pipelining and
+    becomes optimal when the window size is large relative to the bandwidth-delay product.
+
+    Parameters
+    ----------
+    window_size : int
+        The number of frames (or bytes) that can be sent without waiting for an acknowledgment.
+        Must be > 0.
+    rtt : float
+        Round-trip time in seconds, representing the total time from sending a packet to
+        receiving its acknowledgment. Must be >= 0.
+    bandwidth : float
+        Available bandwidth in bytes per second (or bits per second if matching units with
+        window_size). Must be > 0.
+
+    Returns
+    -------
+    float
+        Link utilization as a value between 0 and 1. A utilization of 1.0 indicates the link
+        is fully utilized with no idle time.
+
+    Raises
+    ------
+    ValueError
+        If `window_size` is less than or equal to zero, or if `rtt` or `bandwidth` is negative.
+
+    Examples
+    --------
+    >>> sliding_window_utilization(10, rtt=0.1, bandwidth=1_000_000)
+    0.99...
+    >>> sliding_window_utilization(5, rtt=0.05, bandwidth=500_000)
+    0.99...
+    """
+    if window_size < 0:
+        raise ValueError("Window size cannot be negative.")
+    if rtt < 0:
+        raise ValueError("Round-trip time cannot be negative.")
+    if bandwidth < 0:
+        raise ValueError("Bandwidth cannot be negative.")
+    if rtt == 0 and bandwidth == 0:
+        raise ValueError("Both round-trip time and bandwidth cannot be zero.")
+
+    return window_size / (window_size + rtt * bandwidth)
