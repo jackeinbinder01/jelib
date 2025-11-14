@@ -1,12 +1,12 @@
 import pandas as pd
 from pathlib import Path
 
-FILE_NAME = "file.xlsx"
-FILE_PATH = Path(rf"C:\Users\YourName\Documents\{FILE_NAME}")  # Where the excel file is
+FILE_NAME = "file.xlsx"  # Excel file name
+FILE_PATH = Path(rf"C:\Users\YourName\Documents\{FILE_NAME}")  # The path to the file's folder on your machine
 
-P_NAME_ROW_IDX = 3  # Row in each sheet where partner name is
-P_NAME_COL_IDX = 0  # Col in each sheet where partner name is
-MAX_CHARS = 25  # ~ number of chars before cell returns to \n
+P_NAME_ROW_IDX = 3  # The row index (row number - 1) of the partner name on each sheet
+P_NAME_COL_IDX = 0  # The col index (col number - 1) of the partner name on each sheet
+MAX_CHARS = 25  # The maximum number of characters before it becomes a problem
 
 
 def find_long_names(
@@ -15,7 +15,7 @@ def find_long_names(
         col_idx: int = P_NAME_COL_IDX,
         max_chars: int = MAX_CHARS,
 ) -> list[str]:
-    excel_file = pd.read_excel(path, sheet_name=None)  # Excel -> Pandas
+    excel_file = pd.read_excel(path, sheet_name=None)
 
     too_long_sheets = []
     for sheet_name, df in excel_file.items():
