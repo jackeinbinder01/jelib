@@ -29,7 +29,7 @@ def find_long_names(
         partner_name_len = len(partner_name)
         if partner_name_len > max_chars:
             too_long_sheets.append(
-                f"File: {str(path)} Sheet: {sheet_name} | Name: {partner_name} | # Chars: {partner_name_len}"
+                f"File: {str(path)} | Sheet: {sheet_name} | Name: {partner_name} | # Chars: {partner_name_len}"
             )
 
     return too_long_sheets
