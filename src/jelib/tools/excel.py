@@ -22,14 +22,18 @@ def find_long_names(
         if df.shape[0] <= row_idx or df.shape[1] <= col_idx:
             continue
 
-        partner_name = str(df.iloc[row_idx, col_idx]).strip()
-        if pd.isna(partner_name) or partner_name == "":
+        partner_name = df.iloc[row_idx, col_idx]
+        if pd.isna(partner_name):
+            continue
+
+        partner_name = str(partner_name).strip()
+        if partner_name == "":
             continue
 
         partner_name_len = len(partner_name)
         if partner_name_len > max_chars:
             too_long_sheets.append(
-                f"File: {str(path)} | Sheet: {sheet_name} | Name: {partner_name} | # Chars: {partner_name_len}"
+                f"Sheet: {sheet_name} | Name: {partner_name} | # Chars: {partner_name_len}"
             )
 
     return too_long_sheets
